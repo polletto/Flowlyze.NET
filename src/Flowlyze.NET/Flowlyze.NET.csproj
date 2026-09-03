@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <PackageId>Flowlyze.NET</PackageId>
+    <Title>Flowlyze.NET</Title>
+    <Description>Modern .NET SDK for the Flowlyze API.</Description>
+    <Authors>polletto</Authors>
+    <RepositoryUrl>https://github.com/polletto/Flowlyze.NET</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>flowlyze;api;sdk;client;integration</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>
