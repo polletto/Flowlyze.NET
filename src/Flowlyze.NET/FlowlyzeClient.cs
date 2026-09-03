@@ -1,3 +1,5 @@
+using Flowlyze.Authentication;
+
 namespace Flowlyze;
 
 /// <summary>
@@ -5,18 +7,18 @@ namespace Flowlyze;
 /// </summary>
 public sealed class FlowlyzeClient
 {
-    private const string ApiKeyHeaderName = "x-api-key";
-    private const string TenantHeaderName = "x-tenant-id";
-
     private readonly HttpClient _httpClient;
     private readonly FlowlyzeClientOptions _options;
+    private readonly IFlowlyzeAuthenticationProvider _authenticationProvider;
 
     public FlowlyzeClient(
         HttpClient httpClient,
-        FlowlyzeClientOptions options)
+        FlowlyzeClientOptions options,
+        IFlowlyzeAuthenticationProvider authenticationProvider)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _authenticationProvider = authenticationProvider ?? throw new ArgumentNullException(nameof(authenticationProvider));
         Flows = new FlowClient(this);
     }
 
@@ -46,14 +48,9 @@ public sealed class FlowlyzeClient
             request.RequestUri = new Uri(_options.BaseAddress, request.RequestUri);
         }
 
-        request.Headers.Remove(ApiKeyHeaderName);
-        request.Headers.TryAddWithoutValidation(ApiKeyHeaderName, _options.ApiKey);
-
-        request.Headers.Remove(TenantHeaderName);
-        if (!string.IsNullOrWhiteSpace(_options.TenantId))
-        {
-            request.Headers.TryAddWithoutValidation(TenantHeaderName, _options.TenantId);
-        }
+        await _authenticationProvider
+            .ApplyAsync(request, cancellationToken)
+            .ConfigureAwait(false);
 
         return await _httpClient
             .SendAsync(request, completionOption, cancellationToken)
