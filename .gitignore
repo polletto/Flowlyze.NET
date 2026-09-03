@@ -1,0 +1,28 @@
+## .NET / Visual Studio
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## JetBrains
+.idea/
+*.sln.iml
+
+## Build / packages
+artifacts/
+TestResults/
+*.nupkg
+*.snupkg
+
+## Local configuration / secrets
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+
+## OS
+.DS_Store
+Thumbs.db
