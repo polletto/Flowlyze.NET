@@ -7,51 +7,54 @@ A modern .NET SDK for the [Flowlyze](https://flowlyze.com/) API.
 ## Goals
 
 - Target modern .NET (`net10.0`)
-- Handle Flowlyze OAuth 2.0 client-credentials authentication automatically
-- Cache and refresh access tokens
-- Add the required `tenant_id` header automatically
+- Handle Flowlyze API-key authentication automatically
+- Add the optional `x-tenant-id` header for multi-tenant/admin scenarios
 - Provide strongly typed clients for Flowlyze API resources
 - Keep a low-level HTTP escape hatch for newly released endpoints
 - Support cancellation throughout the SDK
 
 ## Current status
 
-The repository currently contains the SDK foundation. Resource-specific clients such as Flow, Batch, Logs and Platform will be added incrementally.
+The repository contains the SDK foundation and the first typed Flow operation: `GET /api/flows/:id`.
 
-The Flowlyze API reference currently documents resources including Batch, BatchTask, DataSpace, Destination, EditableFlow, Flow, GlobalVariable, Logs, MessageQueue, Platform, Queue, Statistic, Tenant and others.
+The Flowlyze API reference documents resources including Batch, BatchTask, DataSpace, Destination, EditableFlow, Flow, GlobalVariable, Logs, MessageQueue, Platform, Queue, Statistic, Tenant and others.
 
 ## Authentication
 
-Flowlyze uses OAuth 2.0 with the `client_credentials` grant. Access tokens are obtained from Auth0 and API calls require both a Bearer token and a `tenant_id` header.
+Flowlyze API endpoints use an API key sent through the `x-api-key` header.
+
+When the authentication context is multi-tenant (for example an admin API key), the target tenant can be specified through the optional `x-tenant-id` header.
 
 ```csharp
 using Flowlyze;
-using Flowlyze.Authentication;
 
-var authOptions = new FlowlyzeAuthenticationOptions
-{
-    ClientId = "your-client-id",
-    ClientSecret = "your-client-secret",
-    Audience = "your-api-audience"
-};
-
-var clientOptions = new FlowlyzeClientOptions
+var options = new FlowlyzeClientOptions
 {
     BaseAddress = new Uri("https://your-flowlyze-api-base-url/"),
-    TenantId = "your-tenant-id"
+    ApiKey = "your-api-key",
+    TenantId = "your-tenant-id" // optional when the API key is already tenant-scoped
 };
 
-var authHttpClient = new HttpClient();
-var apiHttpClient = new HttpClient();
-
-using var tokenProvider = new Auth0AccessTokenProvider(authHttpClient, authOptions);
-var flowlyze = new FlowlyzeClient(apiHttpClient, tokenProvider, clientOptions);
+var httpClient = new HttpClient();
+var flowlyze = new FlowlyzeClient(httpClient, options);
 ```
 
-Until strongly typed resource clients are added, the low-level client can send authenticated Flowlyze requests:
+## Flow - GetById
 
 ```csharp
-using var request = new HttpRequestMessage(HttpMethod.Get, "api/example");
+var flow = await flowlyze.Flows.GetByIdAsync(
+    "flow-id",
+    cancellationToken);
+```
+
+The documented response currently exposes `payload` and `metadata` objects. These are represented as `JsonElement?` until their complete schemas are mapped into strongly typed .NET models.
+
+## Low-level requests
+
+The low-level client remains available for endpoints that are not yet covered by a typed resource client:
+
+```csharp
+using var request = new HttpRequestMessage(HttpMethod.Get, "/api/example");
 using var response = await flowlyze.SendAsync(request, cancellationToken: cancellationToken);
 
 response.EnsureSuccessStatusCode();
@@ -67,11 +70,12 @@ The initial API surface is planned around the most useful operational resources:
 4. Platform
 5. Destination
 
-Additional Flowlyze resources will follow after the core contracts are validated against the official API documentation.
+Additional Flowlyze resources will follow after the contracts are validated against the official API documentation.
 
 ## Documentation
 
 - [Flowlyze API reference](https://doc.flowlyze.com/docs/api/)
+- [Flow - GetById](https://doc.flowlyze.com/docs/api/flow/flow-get-by-id)
 
 ## Project status
 
