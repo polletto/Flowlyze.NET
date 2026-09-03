@@ -1,6 +1,3 @@
-using System.Net.Http.Headers;
-using Flowlyze.Authentication;
-
 namespace Flowlyze;
 
 /// <summary>
@@ -8,21 +5,25 @@ namespace Flowlyze;
 /// </summary>
 public sealed class FlowlyzeClient
 {
-    private const string TenantHeaderName = "tenant_id";
+    private const string ApiKeyHeaderName = "x-api-key";
+    private const string TenantHeaderName = "x-tenant-id";
 
     private readonly HttpClient _httpClient;
-    private readonly IFlowlyzeAccessTokenProvider _accessTokenProvider;
     private readonly FlowlyzeClientOptions _options;
 
     public FlowlyzeClient(
         HttpClient httpClient,
-        IFlowlyzeAccessTokenProvider accessTokenProvider,
         FlowlyzeClientOptions options)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _accessTokenProvider = accessTokenProvider ?? throw new ArgumentNullException(nameof(accessTokenProvider));
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        Flows = new FlowClient(this);
     }
+
+    /// <summary>
+    /// Strongly typed Flow API operations.
+    /// </summary>
+    public FlowClient Flows { get; }
 
     /// <summary>
     /// Sends an authenticated request to Flowlyze.
@@ -45,13 +46,14 @@ public sealed class FlowlyzeClient
             request.RequestUri = new Uri(_options.BaseAddress, request.RequestUri);
         }
 
-        var accessToken = await _accessTokenProvider
-            .GetAccessTokenAsync(cancellationToken)
-            .ConfigureAwait(false);
+        request.Headers.Remove(ApiKeyHeaderName);
+        request.Headers.TryAddWithoutValidation(ApiKeyHeaderName, _options.ApiKey);
 
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         request.Headers.Remove(TenantHeaderName);
-        request.Headers.TryAddWithoutValidation(TenantHeaderName, _options.TenantId);
+        if (!string.IsNullOrWhiteSpace(_options.TenantId))
+        {
+            request.Headers.TryAddWithoutValidation(TenantHeaderName, _options.TenantId);
+        }
 
         return await _httpClient
             .SendAsync(request, completionOption, cancellationToken)
