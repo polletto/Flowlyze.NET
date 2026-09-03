@@ -7,8 +7,7 @@ A modern .NET SDK for the [Flowlyze](https://flowlyze.com/) API.
 ## Goals
 
 - Target modern .NET (`net10.0`)
-- Handle Flowlyze API-key authentication automatically
-- Add the optional `x-tenant-id` header for multi-tenant/admin scenarios
+- Support both currently documented Flowlyze authentication modes while the definitive contract is being confirmed
 - Provide strongly typed clients for Flowlyze API resources
 - Keep a low-level HTTP escape hatch for newly released endpoints
 - Support cancellation throughout the SDK
@@ -21,23 +20,64 @@ The Flowlyze API reference documents resources including Batch, BatchTask, DataS
 
 ## Authentication
 
-Flowlyze API endpoints use an API key sent through the `x-api-key` header.
+The current Flowlyze documentation shows two authentication schemes in different sections. Flowlyze.NET therefore keeps authentication pluggable and currently supports both API-key and OAuth 2.0 client-credentials authentication.
 
-When the authentication context is multi-tenant (for example an admin API key), the target tenant can be specified through the optional `x-tenant-id` header.
+### API key
+
+The endpoint reference for `Flow - GetById` documents `x-api-key`, with optional `x-tenant-id` for multi-tenant/admin scenarios.
 
 ```csharp
 using Flowlyze;
+using Flowlyze.Authentication;
 
-var options = new FlowlyzeClientOptions
+var clientOptions = new FlowlyzeClientOptions
 {
-    BaseAddress = new Uri("https://your-flowlyze-api-base-url/"),
-    ApiKey = "your-api-key",
-    TenantId = "your-tenant-id" // optional when the API key is already tenant-scoped
+    BaseAddress = new Uri("https://your-flowlyze-api-base-url/")
 };
 
-var httpClient = new HttpClient();
-var flowlyze = new FlowlyzeClient(httpClient, options);
+var authentication = new ApiKeyAuthenticationProvider(
+    new ApiKeyAuthenticationOptions
+    {
+        ApiKey = "your-api-key",
+        TenantId = "your-tenant-id" // optional when the API key is already tenant-scoped
+    });
+
+var flowlyze = new FlowlyzeClient(
+    new HttpClient(),
+    clientOptions,
+    authentication);
 ```
+
+### OAuth 2.0 client credentials
+
+The general API documentation describes OAuth 2.0 `client_credentials` authentication through Auth0, using a Bearer token and an optional `tenant_id` header.
+
+```csharp
+using Flowlyze;
+using Flowlyze.Authentication;
+
+var clientOptions = new FlowlyzeClientOptions
+{
+    BaseAddress = new Uri("https://your-flowlyze-api-base-url/")
+};
+
+var authentication = new OAuthAuthenticationProvider(
+    new HttpClient(),
+    new OAuthAuthenticationOptions
+    {
+        ClientId = "your-client-id",
+        ClientSecret = "your-client-secret",
+        Audience = "your-api-audience",
+        TenantId = "your-tenant-id"
+    });
+
+var flowlyze = new FlowlyzeClient(
+    new HttpClient(),
+    clientOptions,
+    authentication);
+```
+
+The OAuth provider caches access tokens and refreshes them shortly before expiration.
 
 ## Flow - GetById
 
