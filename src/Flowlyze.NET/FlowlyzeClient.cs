@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using Flowlyze.Authentication;
 
 namespace Flowlyze;
@@ -8,21 +7,25 @@ namespace Flowlyze;
 /// </summary>
 public sealed class FlowlyzeClient
 {
-    private const string TenantHeaderName = "tenant_id";
-
     private readonly HttpClient _httpClient;
-    private readonly IFlowlyzeAccessTokenProvider _accessTokenProvider;
     private readonly FlowlyzeClientOptions _options;
+    private readonly IFlowlyzeAuthenticationProvider _authenticationProvider;
 
     public FlowlyzeClient(
         HttpClient httpClient,
-        IFlowlyzeAccessTokenProvider accessTokenProvider,
-        FlowlyzeClientOptions options)
+        FlowlyzeClientOptions options,
+        IFlowlyzeAuthenticationProvider authenticationProvider)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _accessTokenProvider = accessTokenProvider ?? throw new ArgumentNullException(nameof(accessTokenProvider));
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _authenticationProvider = authenticationProvider ?? throw new ArgumentNullException(nameof(authenticationProvider));
+        Flows = new FlowClient(this);
     }
+
+    /// <summary>
+    /// Strongly typed Flow API operations.
+    /// </summary>
+    public FlowClient Flows { get; }
 
     /// <summary>
     /// Sends an authenticated request to Flowlyze.
@@ -45,13 +48,9 @@ public sealed class FlowlyzeClient
             request.RequestUri = new Uri(_options.BaseAddress, request.RequestUri);
         }
 
-        var accessToken = await _accessTokenProvider
-            .GetAccessTokenAsync(cancellationToken)
+        await _authenticationProvider
+            .ApplyAsync(request, cancellationToken)
             .ConfigureAwait(false);
-
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        request.Headers.Remove(TenantHeaderName);
-        request.Headers.TryAddWithoutValidation(TenantHeaderName, _options.TenantId);
 
         return await _httpClient
             .SendAsync(request, completionOption, cancellationToken)

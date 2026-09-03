@@ -1,30 +1,48 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 
 namespace Flowlyze.Authentication;
 
 /// <summary>
-/// Retrieves and caches Flowlyze OAuth access tokens using the Auth0 client_credentials flow.
+/// Applies OAuth 2.0 Bearer authentication using the client-credentials grant.
 /// </summary>
-public sealed class Auth0AccessTokenProvider : IFlowlyzeAccessTokenProvider, IDisposable
+public sealed class OAuthAuthenticationProvider : IFlowlyzeAuthenticationProvider, IDisposable
 {
+    private const string TenantHeaderName = "tenant_id";
+
     private readonly HttpClient _httpClient;
-    private readonly FlowlyzeAuthenticationOptions _options;
+    private readonly OAuthAuthenticationOptions _options;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
     private string? _accessToken;
     private DateTimeOffset _expiresAt;
 
-    public Auth0AccessTokenProvider(
+    public OAuthAuthenticationProvider(
         HttpClient httpClient,
-        FlowlyzeAuthenticationOptions options)
+        OAuthAuthenticationOptions options)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _options = options ?? throw new ArgumentNullException(nameof(options));
     }
 
-    public async ValueTask<string> GetAccessTokenAsync(
+    public async ValueTask ApplyAsync(
+        HttpRequestMessage request,
         CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var accessToken = await GetAccessTokenAsync(cancellationToken).ConfigureAwait(false);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        request.Headers.Remove(TenantHeaderName);
+        if (!string.IsNullOrWhiteSpace(_options.TenantId))
+        {
+            request.Headers.TryAddWithoutValidation(TenantHeaderName, _options.TenantId);
+        }
+    }
+
+    private async ValueTask<string> GetAccessTokenAsync(CancellationToken cancellationToken)
     {
         if (HasValidToken())
         {
